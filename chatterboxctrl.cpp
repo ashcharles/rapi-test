@@ -43,7 +43,7 @@ const std::string StateNames[] = {"Start", "Work", "Load", "Dump",
 CChatterboxCtrl::CChatterboxCtrl ( ARobot* robot )
     : ARobotCtrl ( robot )
 {
-  PRT_STATUS ( "Path Planning Code\n" );
+  PRT_STATUS ( "First Tagged GIT Commit\n" );
 
   // get robot devices
   ADrivetrain2dof * drivetrain;
