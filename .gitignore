@@ -1,0 +1,9 @@
+CMakeCache.txt
+CMakeFiles/
+Makefile
+ash-test
+cmake_install.cmake
+local/
+*kdevelop*
+*.kdevses
+*~
