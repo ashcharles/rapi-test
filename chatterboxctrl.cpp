@@ -83,11 +83,9 @@ CChatterboxCtrl::CChatterboxCtrl ( ARobot* robot )
   mObstacleAvoider = new CNdPlus( (CCBBumper *) mBumper,
 		                          (CCBIrSensor *) mIr, mName );
   assert( mObstacleAvoider );
-  mPath = new CWaypointList( "source2sink.txt" );
   mOdo = mDrivetrain->getOdometry();
-  mOdo->setPose( (mPath->findWaypoint( "start" ))->getPose() );
   mRobotPose = mOdo->getPose();
-  mPath->setCurrentWaypoint( "source" );
+  mPath = new CWaypointList( "waypoints.txt" );
   mPath->print();
 
   // set up timers (in seconds)
@@ -162,14 +160,11 @@ bool CChatterboxCtrl::isButtonPressed( tButton buttonId)
 //-----------------------------------------------------------------------------
 tActionResult CChatterboxCtrl::actionWork()
 {
-//  if( mObstacleAvoider->atGoal() ) {
-//    printf( "At goal...on to next waypoint\n" );
-//	mObstacleAvoider->setGoal( mPath->getNextWaypoint() );
-//  }
-  mObstacleAvoider->setGoal( CPose2d( mRobotPose.mX + 1.0,
-			                          mRobotPose.mY, mRobotPose.mYaw) );
+  mPath->update( mOdo->getPose() );
+  CWaypoint2d goal = mPath->getWaypoint();
+
+  mObstacleAvoider->setGoal( goal.getPose() );
   mDrivetrain->setVelocityCmd( mObstacleAvoider->getRecommendedVelocity() );
-  //mOdo->print();
   return IN_PROGRESS;
 }
 //-----------------------------------------------------------------------------

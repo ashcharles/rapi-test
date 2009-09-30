@@ -1,25 +1,43 @@
 #ifndef WAYPOINTLIST_H
 #define WAYPOINTLIST_H
 
-#include <RapiCore>
+#include <stdlib.h>
+#include <stdio.h>
 #include <list>
 #include <string>
+#include <RapiCore>
 
 using namespace Rapi;
 
 class CWaypointList
 {
   public:
+    /** Default constructor */
+    CWaypointList();
+    /** Overloaded constructor that loads points from a file */
     CWaypointList( std::string filename );
+    /** Default destructor */
     ~CWaypointList();
+    /** Pretty-print list of waypoints */
     void print();
-    CWaypoint2d * findWaypoint( std::string name);
-	void setCurrentWaypoint( std::string name );
-	CWaypoint2d * getCurrentWaypoint();
-	CWaypoint2d * getNextWaypoint();
+    /** Load waypoint from a file */
+    bool loadPoints( std::string filename );
+    /** Update the current waypoint */
+    bool update( CPose2d myPose );
+    /** Checks if we have reached the current waypoint */
+    bool atWaypoint( CPose2d myPose );
+    /** Return the current waypoint */
+    CWaypoint2d getWaypoint();
+    /** This is a STAGE+RAPI specific function */
+//    void populateStageWaypoints(
+//      std::vector<Stg::ModelPosition::Waypoint>& stgWaypoints,
+//      CPose2d poseOffset );
   private:
     std::list<CWaypoint2d> mWaypoints;
-	CWaypoint2d * mCurrentWaypoint;
+    std::list<CWaypoint2d>::iterator mCurrentWaypoint;
+    //CWaypoint2d mCurrentWaypoint;
+    bool mFgAtWaypoint;
+
 };
 
 
