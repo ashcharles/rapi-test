@@ -11,13 +11,12 @@
 #include <fcntl.h>
 #include <iostream> //TODO remove this
 
-#include "network_server_udp.h"
 
-class NetworkClientUDP {
+class NetworkClientTCP {
 	public:
-		NetworkClientUDP( const std::string& SERVER_IP, int port = 9930 ) : DST_IP( SERVER_IP ), PORT( port )
+		NetworkClientTCP( const std::string& SERVER_IP, int port = 9930 ) : DST_IP( SERVER_IP ), PORT( port )
 		{
-			_sock = socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP );
+			_sock = socket( AF_INET, SOCK_STREAM, 0 );
 			if( _sock < 0 ) {
 				perror( "socket" );
 				exit( 1 );
@@ -31,6 +30,11 @@ class NetworkClientUDP {
 				exit(1);
 			}
 
+			if ( connect( _sock, (struct sockaddr*) &_dstaddr, sizeof( _dstaddr ) ) < 0 ) {
+				perror("ERROR connecting");
+				exit( 1 );
+			}
+
 			//set nonblocking
 			int flags = fcntl( _sock, F_GETFL );
 			flags |= O_NONBLOCK;
@@ -40,33 +44,27 @@ class NetworkClientUDP {
 		void send( const std::string& s ) { return send( s.c_str() ); }
 		void send( const char* s )
 		{
-			if( sendto( _sock, s, strlen( s ), 0, (sockaddr*) &_dstaddr, sizeof( _dstaddr ) ) == -1 ) {
-				perror( "sendto" );
+			int n = write( _sock, s, strlen(s) );
+			if( n <= 0 ) {
+				perror( "write" );
 				//exit( 1 );
 			}
 		}
 
-		bool recv( NetworkServerUDP::ReceivedPacket& received_packet )
+		bool recv( std::string& buf )
 		{
-			static const int BUFFSIZE = 255;
-			char buffer[ BUFFSIZE ];
+			static const int BUFFSIZE = 4000;
+			static char buffer[ BUFFSIZE ];
 			/* Receive the word back from the server */
-			socklen_t clientlen = sizeof( received_packet.addr );
-			int received = recvfrom( _sock, buffer, BUFFSIZE, 0, (struct sockaddr *) &(received_packet.addr), &clientlen );
 
-			if( received < 0 )
+			int n = read( _sock, buffer, BUFFSIZE-1 );
+			if( n <= 0 )
 				return false;
 
-			/* Check that client and server are using same socket */
-			if( _dstaddr.sin_addr.s_addr != received_packet.addr.sin_addr.s_addr ) {
-				//TODO FIXME make robust
-				std::cerr << "Received a packet from an unexpected server";
-				return false;
-				exit( 1 );
-			}
-			buffer[received] = '\0';
-			received_packet.s = std::string( buffer );
+			buffer[ n ] = '\0';
+			buf = std::string( buffer );
 			return true;
+
 		}
 
 	private:

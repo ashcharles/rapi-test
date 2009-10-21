@@ -7,8 +7,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <cstdlib>
-#include <cstring>
-#include <string>
+#include <string.h>
 #include <fcntl.h>
 
 class NetworkServerUDP {
@@ -62,18 +61,18 @@ class NetworkServerUDP {
 			if( received < 0 )
 				return false;
 
-			fprintf( stderr, "Client connected: %s\n", inet_ntoa( received_packet.addr.sin_addr ) );
+			//fprintf( stderr, "Client connected: %s\n", inet_ntoa( received_packet.addr.sin_addr ) );
 
 			buffer[received] = '\0';        /* Assure null terminated string */
-			fprintf(stdout, buffer);
-			fprintf(stdout, "\n");
+			//fprintf(stdout, buffer);
+			//fprintf(stdout, "\n");
 			received_packet.s = std::string( buffer );
 			return true;
 		}
 
 	private:
 		struct sockaddr_in _server_addr;
-		int _sock, i;
+		int _sock, i; //TODO remove i
 		const int PORT;
 
 };

@@ -28,6 +28,7 @@
 #include <ndplus.h>
 #include <string>
 #include <list>
+#include "robotrpcserver.h"
 #include "waypoint.h"
 
 using namespace Rapi;
@@ -134,6 +135,8 @@ class CChatterboxCtrl : public ARobotCtrl
 	CDataLogger * mDataLogger;
 	/** Current position */
 	CPose2d mRobotPose;
+    /** RPC Server */
+    RobotRpcServer mServer;
 
   private:
 	/** Robot name */

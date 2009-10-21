@@ -446,7 +446,7 @@ namespace json
 
 		public:
 
-			boost::spirit::rule< SCANNER > const & start() const { return m_object; }
+			boost::spirit::rule< SCANNER > const & start() const { return m_value; } //ACB: used to be m_object, but m_value will return ANY json values - and doesnt assume each json string starts as an object
 
 			// - -[ create the definition ] - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

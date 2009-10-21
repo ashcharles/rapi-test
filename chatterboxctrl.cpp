@@ -34,16 +34,16 @@ const float LOW_ENERGY_VOLTAGE_THRESHOLD = 14.5;
 const float FULLY_CHARGED_VOLTAGE_THRESHOLD = 16.75;
 /** Maximum allowable charging time [s] */
 const float MAX_CHARGING_TIME = 600.0;
-/** JSON RPC UDP Server Port */
+/** JSON RPC TCP Server Port */
 const int PORT = 12345;
 /** Array of State names for logging */
 const std::string StateNames[] = {"Start", "Work", "Load", "Dump",
 	                              "Pause", "Quit"};
 //-----------------------------------------------------------------------------
 CChatterboxCtrl::CChatterboxCtrl ( ARobot* robot )
-    : ARobotCtrl ( robot )
+    : ARobotCtrl ( robot ), mServer( robot, PORT )
 {
-  PRT_STATUS ( "Second Tagged GIT Commit\n" );
+  PRT_STATUS ( "Testing JSON GUI stuff\n" );
 
   // get robot devices
   ADrivetrain2dof * drivetrain;
@@ -102,6 +102,7 @@ CChatterboxCtrl::CChatterboxCtrl ( ARobot* robot )
   mDataLogger->addVar( &mVoltageLpf, "Filtered Voltage" );
   mDataLogger->addVar( &mStateName, "State name" );
   mRobot->setUpdateInterval( arg );
+  mServer.update();
 }
 //-----------------------------------------------------------------------------
 CChatterboxCtrl::~CChatterboxCtrl()
@@ -271,6 +272,7 @@ void CChatterboxCtrl::updateData ( float dt )
                 * (mPowerPack->getVoltage() - mVoltageLpf); 
   mRobotPose = mOdo->getPose();
   mDataLogger->write(mAccumulatedRunTime);
+  mServer.update();
   mObstacleAvoider->update( mAccumulatedRunTime,
 		       mDrivetrain->getOdometry()->getPose(),
 			   mDrivetrain->getVelocity() );
