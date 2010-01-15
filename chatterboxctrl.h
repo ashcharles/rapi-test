@@ -24,17 +24,17 @@
 #include <RapiChatterbox>
 #include <poll.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <nd.h>
 #include <ndplus.h>
 #include <string>
 #include <list>
-#include "robotrpcserver.h"
 #include "waypoint.h"
 
 using namespace Rapi;
 
 /** Type definition for state of FSM */
-typedef enum { START, WORK, LOAD, DUMP, PAUSE, QUIT, NUM_STATES } tState;
+typedef enum { START, WORK, SEARCH, LOAD, DUMP, PAUSE, QUIT, NUM_STATES } tState;
 /** Type definition for iRobot Create buttons */ 
 typedef enum { PLAY_BUTTON, FAST_FORWARD_BUTTON, NUM_BUTTONS } tButton;
 /** Type definition for action results */ 
@@ -59,6 +59,8 @@ class CChatterboxCtrl : public ARobotCtrl
     // functions
 	/** <EM>Run</EM> action */
 	tActionResult actionWork();
+    /** <EM>Search</EM> action */
+    tActionResult actionSearch();
 	/** <EM>Loading</EM> action */
 	tActionResult actionLoad();
 	/** <EM>Dumping</EM> action */
@@ -102,9 +104,9 @@ class CChatterboxCtrl : public ARobotCtrl
     void updateData(float dt);
 	// Devices
     /** Drivetrain */
-    CCBDrivetrain2dof * mDrivetrain;
-    /** Infrared sesnors */
-    ARangeFinder * mIr;
+    ADrivetrain2dof * mDrivetrain;
+    /** range finder...either a laser or IR sensors*/
+    ARangeFinder * mRangeFinder;
     /** Power pack */
     APowerPack * mPowerPack;
     /** Text display */
@@ -128,15 +130,13 @@ class CChatterboxCtrl : public ARobotCtrl
     /** Photo sensor */
     AAnalogSensorArray * mPhoto;
 	/** Cliff Sensor */
-	CCBCliffSensor * mCliffSensor;
+	ABinarySensorArray * mCliffSensor;
 	/** Odometry from drivetrain */
 	COdometry * mOdo;
 	/** Data Logger */
 	CDataLogger * mDataLogger;
-	/** Current position */
-	CPose2d mRobotPose;
     /** RPC Server */
-    RobotRpcServer mServer;
+    RobotRpcServer * mServer;
 
   private:
 	/** Robot name */
@@ -165,6 +165,10 @@ class CChatterboxCtrl : public ARobotCtrl
 	bool mIsLoaded;
 	/** low-pass filtered voltage level */
 	float mVoltageLpf;
+    /** number of flags transported */
+    int mFlags;
+    /** Data mutex for RPC server */
+    pthread_mutex_t mDataMutex;
 };
 
 #endif

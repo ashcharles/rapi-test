@@ -4,6 +4,7 @@
 CWaypointList::CWaypointList()
 {
   mFgAtWaypoint = false;
+  mFgAtEnd = false;
 }
 //------------------------------------------------------------------------------
 CWaypointList::CWaypointList( std::string filename )
@@ -57,6 +58,8 @@ bool CWaypointList::loadPoints( std::string filename )
     mWaypoints.push_back( waypoint );
   }
   fclose( file );
+  mFgAtEnd = false;
+  
   return true;
 }
 //------------------------------------------------------------------------------
@@ -68,12 +71,12 @@ bool CWaypointList::update( CPose2d myPose )
   }
   if( atWaypoint( myPose ) ) {
     std::list<CWaypoint2d>::iterator lastElement( mWaypoints.end() );
-    lastElement--; // this is kludgy but works
-    if( mCurrentWaypoint != lastElement-- ) {
-      mCurrentWaypoint++;
+    --lastElement; // this is kludgy but end() points after the last element
+    if( mCurrentWaypoint != lastElement ) {
+      ++mCurrentWaypoint;
     }
     else {
-      mCurrentWaypoint = mWaypoints.begin();
+      mFgAtEnd = true;
     }
   }
   return true;
@@ -81,7 +84,7 @@ bool CWaypointList::update( CPose2d myPose )
 //------------------------------------------------------------------------------
 bool CWaypointList::atWaypoint( CPose2d pose )
 {
-  if( pose.distance( getWaypoint().getPose() ) < 0.4 )
+  if( pose.distance( getWaypoint().getPose() ) < 0.3 )
     return true;
   return false;
 }
@@ -91,18 +94,3 @@ CWaypoint2d CWaypointList::getWaypoint()
   return *mCurrentWaypoint;
 }
 //------------------------------------------------------------------------------
-//void CWaypointList::populateStageWaypoints(
-//  std::vector<Stg::ModelPosition::Waypoint>& stgWaypoints,
-//  CPose2d poseOffset )
-//{
-//  std::list<CWaypoint2d>::iterator it;
-//  for( it = mWaypoints.begin(); it != mWaypoints.end(); ++it ) {
-//    CPose2d pose = it->getPose() - poseOffset;
-//    Stg::ModelPosition::Waypoint stgWaypoint = Stg::ModelPosition::Waypoint();
-//    stgWaypoint.pose.x = pose.mX;
-//    stgWaypoint.pose.y = pose.mY;
-//    stgWaypoint.pose.a = pose.mYaw;
-//    stgWaypoint.color = Stg::Color( 0, 0, 1 ); // green
-//    stgWaypoints.push_back( stgWaypoint );
-//  }
-//}

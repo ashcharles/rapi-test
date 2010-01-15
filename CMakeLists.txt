@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 2.6)
 
+SET(CMAKE_BUILD_TYPE debug)
+ADD_DEFINITIONS(-g -Wall)
+
 INCLUDE(FindPkgConfig)
 PKG_SEARCH_MODULE(RAPI REQUIRED autolab-rapi)
 PKG_SEARCH_MODULE(RAPICB REQUIRED autolab-rapi-chatterbox)
@@ -21,7 +24,6 @@ ADD_EXECUTABLE(ash-test
   ash-test.cpp
   chatterboxctrl.cpp
   waypoint.cpp
-  robotrpcserver.cpp
 )
 
 TARGET_LINK_LIBRARIES(ash-test
@@ -29,5 +31,3 @@ TARGET_LINK_LIBRARIES(ash-test
   autolab-rapi-chatterbox
   autolab-nd
 )
-# no-reorder gets rid of warnings from json about pre-initialization on classes
-ADD_DEFINITIONS(-g -Wall -Wno-reorder)

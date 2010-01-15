@@ -28,16 +28,12 @@ class CWaypointList
     bool atWaypoint( CPose2d myPose );
     /** Return the current waypoint */
     CWaypoint2d getWaypoint();
-    /** This is a STAGE+RAPI specific function */
-//    void populateStageWaypoints(
-//      std::vector<Stg::ModelPosition::Waypoint>& stgWaypoints,
-//      CPose2d poseOffset );
+    bool mFgAtEnd;
   private:
     std::list<CWaypoint2d> mWaypoints;
     std::list<CWaypoint2d>::iterator mCurrentWaypoint;
     //CWaypoint2d mCurrentWaypoint;
     bool mFgAtWaypoint;
-
 };
 
 
