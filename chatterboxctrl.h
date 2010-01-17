@@ -34,7 +34,8 @@
 using namespace Rapi;
 
 /** Type definition for state of FSM */
-typedef enum { START, WORK, SEARCH, LOAD, DUMP, PAUSE, QUIT, NUM_STATES } tState;
+typedef enum { START, WORK, SEARCH, APPROACH_BAY, LOAD, DUMP, PAUSE,
+	           QUIT, NUM_STATES } tState;
 /** Type definition for iRobot Create buttons */ 
 typedef enum { PLAY_BUTTON, FAST_FORWARD_BUTTON, NUM_BUTTONS } tButton;
 /** Type definition for action results */ 
@@ -61,6 +62,8 @@ class CChatterboxCtrl : public ARobotCtrl
 	tActionResult actionWork();
     /** <EM>Search</EM> action */
     tActionResult actionSearch();
+    /** <EM>Approach Cargo Bay</EM> action */
+    tActionResult actionApproachBay();
 	/** <EM>Loading</EM> action */
 	tActionResult actionLoad();
 	/** <EM>Dumping</EM> action */
@@ -72,6 +75,11 @@ class CChatterboxCtrl : public ARobotCtrl
 	 * @return true if we are close to waypoint 
 	 */
 	bool isAtGoal();
+	/**
+	 * Check if we can see a charger's force field
+	 * @return true if we see a force field
+	 */
+	bool isForceFieldDetected();
 	/**
 	 * Check if we can see a charger
 	 * @return true if we see a charger
@@ -95,8 +103,9 @@ class CChatterboxCtrl : public ARobotCtrl
 	bool isButtonPressed(tButton buttonId);
 	/**
 	 * Check for input from the console
+	 * @return key input from console or '\0'
 	 */
-	void checkConsole();
+	char gotConsoleKey();
 	/**
      * Update controller for the current time step
      * @param dt time since last upate [s]

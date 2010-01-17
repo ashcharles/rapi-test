@@ -38,8 +38,8 @@ const int PORT = 12345;
 /** Number of flags to transport */
 const int NUM_FLAGS = 10;
 /** Array of State names for logging */
-const std::string StateNames[] = {"Start", "Work", "Search", "Load", "Dump",
-	                              "Pause", "Quit"};
+const std::string StateNames[] = { "Start", "Work", "Search", "Approach_Bay",
+                                   "Load", "Dump", "Pause", "Quit"};
 //-----------------------------------------------------------------------------
 CChatterboxCtrl::CChatterboxCtrl ( ARobot* robot )
     : ARobotCtrl ( robot )
@@ -73,7 +73,7 @@ CChatterboxCtrl::CChatterboxCtrl ( ARobot* robot )
   mRobot->findDevice ( mPhoto, "CB:photosensor" );
   mRobot->findDevice ( mCliffSensor, "CB:cliff" );
   mRobot->findDevice ( mRangeFinder, "CB:ir" );
-  mRobot->findDevice ( mLaser, "CB:laser" );
+  //mRobot->findDevice ( mLaser, "CB:laser" );
   if( mLaser ) {
     PRT_STATUS( "Using a laser device" );
     mRangeFinder = mLaser;
@@ -90,13 +90,13 @@ CChatterboxCtrl::CChatterboxCtrl ( ARobot* robot )
   // Setup navigation
   mPath = new CWaypointList( "source2sink.txt" );
   mObstacleAvoider = new CNdPlus( mBumper, mRangeFinder, mName,
-                                  3 * mRangeFinder->getNumSamples() );
+                                  5 * mRangeFinder->getNumSamples() );
   mOdo = mDrivetrain->getOdometry();
   mOdo->setToZero();
 
   // Setup logging & rpc server
   char filename[40];
-  sprintf(filename, "logfile_%slog", mName.c_str() );
+  sprintf(filename, "logfile_%s.log", mName.c_str() );
   mDataLogger = CDataLogger::getInstance( filename , OVERWRITE, "#" );
   mDataLogger->addVar( &mPhoto->mData[0], "Photo Sensor" );
   mDataLogger->addVar( &mVoltageLpf, "Filtered Voltage" );
@@ -128,8 +128,22 @@ bool CChatterboxCtrl::isChargingRequired()
 //-----------------------------------------------------------------------------
 bool CChatterboxCtrl::isAtCargoBay()
 {
-  if( mPhoto->mData[0] < 600 ) {
-	  return true;
+  //if( mPhoto->mData[0] < 100 ) {
+//	  return true;
+//  }
+  return false;
+}
+//-----------------------------------------------------------------------------
+bool CChatterboxCtrl::isForceFieldDetected()
+{
+  unsigned char ir;
+  ir = mFrontFiducial->mFiducialData[0].id;
+
+  if( (ir == CB_FORCE_FIELD) ||
+	  (ir == CB_RED_BUOY_FORCE_FIELD) ||
+	  (ir == CB_GREEN_BUOY_FORCE_FIELD) ||
+	  (ir == CB_RED_GREEN_BUOY_FORCE_FIELD) ) {
+    return true;
   }
   return false;
 }
@@ -151,7 +165,7 @@ bool CChatterboxCtrl::isChargerDetected()
   return false;
 }
 //-----------------------------------------------------------------------------
-bool CChatterboxCtrl::isButtonPressed( tButton buttonId)
+bool CChatterboxCtrl::isButtonPressed( tButton buttonId )
 {
   if( buttonId >= NUM_BUTTONS )
 	 return false; 
@@ -162,19 +176,31 @@ bool CChatterboxCtrl::isButtonPressed( tButton buttonId)
   return false;
 }
 //-----------------------------------------------------------------------------
+char CChatterboxCtrl::gotConsoleKey()
+{
+  struct pollfd fd = { fileno( stdin ), POLLIN, 0 };
+  if( poll( &fd, 1, 0 ) == 1 && (fd.revents & POLLIN) ) {
+    char in;
+    in = '\0';
+    read( fileno( stdin ), &in, 1 );
+	return tolower( in );
+  }
+  return '\0'; // got nothing...send null
+}
+//-----------------------------------------------------------------------------
 tActionResult CChatterboxCtrl::actionWork()
 {
   mPath->update( mOdo->getPose() );
   mObstacleAvoider->setGoal( mPath->getWaypoint().getPose() );
-  //mPath->getWaypoint().getPose().print();
+  mPath->getWaypoint().getPose().print();
   mDrivetrain->setVelocityCmd( mObstacleAvoider->getRecommendedVelocity() );
   return ( mPath->mFgAtEnd ? COMPLETED : IN_PROGRESS );
 }
 //-----------------------------------------------------------------------------
 tActionResult CChatterboxCtrl::actionSearch()
 {
-  double turnTime = 10.0; // turn on the spot [s]
-  double goalTime = 4.0; // try to reach new goal [s]
+  double turnTime = 4.0; // turn on the spot [s]
+  double goalTime = 9.0; // try to reach new goal [s]
 
   double modTime = 0.1 * floor( 10 * fmod( mElapsedStateTime,
                                 turnTime + goalTime ) );
@@ -190,7 +216,24 @@ tActionResult CChatterboxCtrl::actionSearch()
     mDrivetrain->setVelocityCmd( mObstacleAvoider->getRecommendedVelocity() );
   }
 
-  return ( isAtCargoBay() ? COMPLETED : IN_PROGRESS );
+  //return ( isAtCargoBay() ? COMPLETED : IN_PROGRESS );
+  return ( isChargerDetected() ? COMPLETED : IN_PROGRESS );
+}
+//-----------------------------------------------------------------------------
+tActionResult CChatterboxCtrl::actionApproachBay()
+{
+  if( mIsStateChanged ) {
+    mDrivetrain->stop();
+  }
+  if( ((CCBDrivetrain2dof*) mDrivetrain)->getOIMode() != CB_MODE_PASSIVE )
+    ((CCBDrivetrain2dof*) mDrivetrain)->activateDemo( CB_DEMO_DOCK );
+
+  if( isForceFieldDetected() ) {
+    ((CCBDrivetrain2dof*) mDrivetrain)->setDefaultOIMode( CB_MODE_FULL );
+    PRT_STATUS( "That's close enough -- stop the truck\n" );
+    return COMPLETED;
+  }
+  return IN_PROGRESS;
 }
 //-----------------------------------------------------------------------------
 tActionResult CChatterboxCtrl::actionLoad()
@@ -202,7 +245,6 @@ tActionResult CChatterboxCtrl::actionLoad()
 
   if( mIsStateChanged ) {
     mDrivetrain->stop();
-    mOdo->setToZero();
     mLights->setLight( ALL_LIGHTS, BLACK );
     delete( mPath );
   }
@@ -217,6 +259,7 @@ tActionResult CChatterboxCtrl::actionLoad()
     if( loadCount == 0 ) {
       PRT_STATUS( "Loading Complete!\n" );
       mIsLoaded = true;
+      mOdo->setToZero();
       mPath = new CWaypointList( "sink2source.txt" );
       return COMPLETED;
     }
@@ -233,7 +276,6 @@ tActionResult CChatterboxCtrl::actionDump()
 
   if( mIsStateChanged ) {
     mDrivetrain->stop();
-    mOdo->setToZero();
     delete( mPath );
   }
 
@@ -248,6 +290,7 @@ tActionResult CChatterboxCtrl::actionDump()
       PRT_STATUS( "Unloading complete!\n" );
       mIsLoaded = false;
       mFlags += 1;
+      mOdo->setToZero();
       mPath = new CWaypointList( "source2sink.txt" );
       return COMPLETED;
     }
@@ -265,61 +308,51 @@ tActionResult CChatterboxCtrl::actionPause()
   return IN_PROGRESS;
 }
 //-----------------------------------------------------------------------------
-void CChatterboxCtrl::checkConsole()
-{
-  struct pollfd fd = { fileno( stdin ), POLLIN, 0 };
-  if( poll( &fd, 1, 0 ) == 1 && (fd.revents & POLLIN) ) {
-    char in;
-    in = '\0';
-    read( fileno( stdin ), &in, 1 );
-
-	// start robot if 's'
-    if( (toupper( in ) == 'S') && (mState == START) ) {
-      PRT_STATUS( "Received 's'...start robot\n" );
-      mState = WORK;
-    }
-    // quit if 'q'
-    else if( toupper( in ) == 'Q' ) {
-      PRT_STATUS( "Quitting (from 'q')...\n" );
-      mRobot->quit();
-    }
-  }
-}
-//-----------------------------------------------------------------------------
 void CChatterboxCtrl::updateData ( float dt )
 {
   pthread_mutex_lock( &mDataMutex );
   static tState prevTimestepState = mState;
 
   // household chores
+  char key = gotConsoleKey();
+  bool playButtonPressed = isButtonPressed( PLAY_BUTTON );
   mButtonLatchTime += dt;
   mElapsedStateTime += dt;
   mAccumulatedRunTime += dt;
-  checkConsole();
   mVoltageLpf = mVoltageLpf + ( mRobot->getUpdateInterval() / TAU_VOLTAGE_LPF )
                 * ( mPowerPack->getVoltage() - mVoltageLpf ); 
   mDataLogger->write( mAccumulatedRunTime );
   mObstacleAvoider->update( mAccumulatedRunTime,
                             mDrivetrain->getOdometry()->getPose(),
                             mDrivetrain->getVelocity() );
-
 //******************************** START FSM **********************************
+  if( (mState != START) && ( playButtonPressed || key == 'p') )
+    mState = ( mState == PAUSE ) ? mPrevState : PAUSE;
+  else if( isButtonPressed( FAST_FORWARD_BUTTON ) || key == 'q' )
+    mState = QUIT;
+
   switch( mState ) {
     case START:
-      if( isButtonPressed( PLAY_BUTTON ) )
+      mTextDisplay->setText( "" );
+      if( playButtonPressed || key == 's' )
         mState = WORK;
       break;
 
     case WORK:
       mTextDisplay->setText( "1" );
-      actionWork();
-      if( isAtCargoBay() && mElapsedStateTime > 20.0)
-        mState = mIsLoaded ? DUMP : LOAD;
+      if( actionWork() == COMPLETED  || key == 'a' )
+        mState = SEARCH;
       break;
 
     case SEARCH:
       mTextDisplay->setText( "2" );
-      if( actionSearch() == COMPLETED )
+      if( actionSearch() == COMPLETED || key == 'b' )
+        mState = APPROACH_BAY;
+      break;
+
+    case APPROACH_BAY:
+      mTextDisplay->setText( "3" );
+      if( actionApproachBay() == COMPLETED || key == 'c' )
         mState = mIsLoaded ? DUMP : LOAD;
       break;
 
@@ -351,12 +384,6 @@ void CChatterboxCtrl::updateData ( float dt )
       mState = START;
       break;
   }
-
-  // TODO: group with CheckConsole to make things nice
-  if( isButtonPressed( PLAY_BUTTON ) )
-    mState = ( mState == PAUSE ) ? mPrevState : PAUSE;
-  if( isButtonPressed ( FAST_FORWARD_BUTTON ) )
-    mState = QUIT;
 //******************************** END FSM ************************************
 
   // advance states for next time step
