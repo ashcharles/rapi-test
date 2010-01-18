@@ -34,8 +34,8 @@
 using namespace Rapi;
 
 /** Type definition for state of FSM */
-typedef enum { START, WORK, SEARCH, APPROACH_BAY, LOAD, DUMP, PAUSE,
-	           QUIT, NUM_STATES } tState;
+typedef enum { START, WORK, SEARCH, APPROACH_BAY, LOAD, DUMP, RESET, DOCK,
+               CHARGE, UNDOCK, PAUSE, QUIT, NUM_STATES } tState;
 /** Type definition for iRobot Create buttons */ 
 typedef enum { PLAY_BUTTON, FAST_FORWARD_BUTTON, NUM_BUTTONS } tButton;
 /** Type definition for action results */ 
@@ -68,6 +68,14 @@ class CChatterboxCtrl : public ARobotCtrl
 	tActionResult actionLoad();
 	/** <EM>Dumping</EM> action */
 	tActionResult actionDump();
+	/** <EM>Docking</EM> action */
+	tActionResult actionDock();
+	/** <EM>Charging</EM> action */
+	tActionResult actionCharge();
+	/** <EM>Undocking</EM> action */
+	tActionResult actionUndock();
+	/** <EM>Reset</EM> action */
+	tActionResult actionReset();
 	/** <EM>Pause</EM> action */
 	tActionResult actionPause();
 	/**

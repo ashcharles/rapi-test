@@ -259,7 +259,6 @@ tActionResult CChatterboxCtrl::actionLoad()
     if( loadCount == 0 ) {
       PRT_STATUS( "Loading Complete!\n" );
       mIsLoaded = true;
-      mOdo->setToZero();
       mPath = new CWaypointList( "sink2source.txt" );
       return COMPLETED;
     }
@@ -290,11 +289,57 @@ tActionResult CChatterboxCtrl::actionDump()
       PRT_STATUS( "Unloading complete!\n" );
       mIsLoaded = false;
       mFlags += 1;
-      mOdo->setToZero();
       mPath = new CWaypointList( "source2sink.txt" );
       return COMPLETED;
     }
   }
+  return IN_PROGRESS;
+}
+//-----------------------------------------------------------------------------
+tActionResult CChatterboxCtrl::actionReset()
+{
+  // turn 90 degrees away from charger
+  static double stopAngle = mIsLoaded ?
+                            normalizeAngle( mOdo->getPose().mYaw - HALF_PI ) :
+                            normalizeAngle( mOdo->getPose().mYaw + HALF_PI );
+  static double turnRate = mIsLoaded ? 0.2 : -0.2;
+  
+  mDrivetrain->setVelocityCmd( 0.0, turnRate );
+  if( epsilonEqual( mOdo->getPose().mYaw, stopAngle, 0.05 ) ) {
+    mOdo->setToZero();
+    return COMPLETED;
+  }
+  return IN_PROGRESS;
+}
+//-----------------------------------------------------------------------------
+tActionResult CChatterboxCtrl::actionDock()
+{
+  // dock with charger
+  if( mIsStateChanged ) {
+    mDrivetrain->stop();
+  }
+  if( ((CCBDrivetrain2dof*) mDrivetrain)->getOIMode() != CB_MODE_PASSIVE )
+    ((CCBDrivetrain2dof*) mDrivetrain)->activateDemo( CB_DEMO_DOCK );
+
+  if( mPowerPack->isCharging() )
+    return COMPLETED;
+  return IN_PROGRESS;
+}
+//-----------------------------------------------------------------------------
+tActionResult CChatterboxCtrl::actionCharge()
+{
+  // do some charging
+  if( mPowerPack->getVoltage() > FULLY_CHARGED_VOLTAGE_THRESHOLD )
+    return COMPLETED;
+  return IN_PROGRESS;
+}
+//-----------------------------------------------------------------------------
+tActionResult CChatterboxCtrl::actionUndock()
+{
+  // back away (but don't turn away)
+  mDrivetrain->setVelocityCmd( -0.1, 0.0 );
+  if( mElapsedStateTime > 10.0 )
+    return COMPLETED;
   return IN_PROGRESS;
 }
 //-----------------------------------------------------------------------------
@@ -333,9 +378,9 @@ void CChatterboxCtrl::updateData ( float dt )
 
   switch( mState ) {
     case START:
-      mTextDisplay->setText( "" );
+      mTextDisplay->setText( "0" );
       if( playButtonPressed || key == 's' )
-        mState = WORK;
+        mState = SEARCH; // assume I'm close enough to home
       break;
 
     case WORK:
@@ -357,15 +402,41 @@ void CChatterboxCtrl::updateData ( float dt )
       break;
 
     case LOAD:
-      mTextDisplay->setText( "B" );
+      mTextDisplay->setText( "A" );
       if( actionLoad() == COMPLETED )
-        mState = WORK;
+        mState = isChargingRequired() ? DOCK : RESET;
       break;
 
     case DUMP:
+      mTextDisplay->setText( "B" );
+      if( actionDump() == COMPLETED ) {
+        tState nextState = isChargingRequired() ? DOCK : RESET;
+        mState = ( mFlags < NUM_FLAGS ) ? nextState : QUIT;
+      }
+      break;
+
+    case RESET:
+      mTextDisplay->setText( "C" );
+      if( actionReset() == COMPLETED )
+        mState = WORK;
+      break;
+
+    case DOCK:
       mTextDisplay->setText( "D" );
-      if( actionDump() == COMPLETED )
-        mState = ( mFlags < NUM_FLAGS ) ? WORK : QUIT;
+      if( actionDock() == COMPLETED )
+        mState = CHARGE;
+      break;
+
+    case CHARGE:
+      mTextDisplay->setText( "E" );
+      if( actionCharge() == COMPLETED )
+        mState = UNDOCK;
+      break;
+
+    case UNDOCK:
+      mTextDisplay->setText( "F" );
+      if( actionUndock() == COMPLETED )
+        mState = RESET;
       break;
   
     case PAUSE: // state transitions done below
