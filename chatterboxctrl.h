@@ -34,8 +34,9 @@
 using namespace Rapi;
 
 /** Type definition for state of FSM */
-typedef enum { START, WORK, SEARCH, APPROACH_BAY, LOAD, DUMP, RESET, DOCK,
-               CHARGE, UNDOCK, PAUSE, QUIT, NUM_STATES } tState;
+typedef enum { START, WORK, SEARCH, APPROACH_BAY, LOAD, DUMP, RESET,
+               FIND_CHARGER, DOCK, CHARGE, UNDOCK, PAUSE, QUIT,
+			   NUM_STATES } tState;
 /** Type definition for iRobot Create buttons */ 
 typedef enum { PLAY_BUTTON, FAST_FORWARD_BUTTON, NUM_BUTTONS } tButton;
 /** Type definition for action results */ 
@@ -68,6 +69,8 @@ class CChatterboxCtrl : public ARobotCtrl
 	tActionResult actionLoad();
 	/** <EM>Dumping</EM> action */
 	tActionResult actionDump();
+	/** <EM>Find Charger</EM> action */
+	tActionResult actionFindCharger();
 	/** <EM>Docking</EM> action */
 	tActionResult actionDock();
 	/** <EM>Charging</EM> action */
@@ -186,6 +189,14 @@ class CChatterboxCtrl : public ARobotCtrl
     int mFlags;
     /** Data mutex for RPC server */
     pthread_mutex_t mDataMutex;
+	/** current color for loading fades */
+	CRgbColor mColor;
+	/** number of LEDs 'loaded' */
+	int mLoadCount;
+	/** Reset state current stopping angle for turning */
+	double mStopAngle;
+	/** reset state current turn rate */
+	double mTurnRate;
 };
 
 #endif

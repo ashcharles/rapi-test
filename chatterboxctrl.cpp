@@ -39,7 +39,12 @@ const int PORT = 12345;
 const int NUM_FLAGS = 10;
 /** Array of State names for logging */
 const std::string StateNames[] = { "Start", "Work", "Search", "Approach_Bay",
-                                   "Load", "Dump", "Pause", "Quit"};
+                                   "Load", "Dump", "Reset", "Find_Charger",
+								   "Dock", "Charge", "Undock", "Pause",
+								   "Quit"};
+const CPose2d depotPose( 0.5, 5.0, 0.0 );
+const CPose2d chargerPose( 5.5, 5.0, 0.0 );
+const CPose2d sourcePose( 9.5, 5.0, 0.0 );
 //-----------------------------------------------------------------------------
 CChatterboxCtrl::CChatterboxCtrl ( ARobot* robot )
     : ARobotCtrl ( robot )
@@ -53,7 +58,7 @@ CChatterboxCtrl::CChatterboxCtrl ( ARobot* robot )
   mName = name.substr(0, name.find( "." ) ); // parse up to domain
   mState = START;
   mStateName = StateNames[mState];
-  mIsLoaded = false;
+  mIsLoaded = true; // hack to make the search state work on start
   mFlags = 0;
   mElapsedStateTime = 0.0;
   mAccumulatedRunTime = 0.0;
@@ -90,9 +95,9 @@ CChatterboxCtrl::CChatterboxCtrl ( ARobot* robot )
   // Setup navigation
   mPath = new CWaypointList( "source2sink.txt" );
   mObstacleAvoider = new CNdPlus( mBumper, mRangeFinder, mName,
-                                  5 * mRangeFinder->getNumSamples() );
+                                  50 * mRangeFinder->getNumSamples() );
   mOdo = mDrivetrain->getOdometry();
-  mOdo->setToZero();
+  mOdo->setToZero(); // I have no clue where I am to start
 
   // Setup logging & rpc server
   char filename[40];
@@ -128,9 +133,6 @@ bool CChatterboxCtrl::isChargingRequired()
 //-----------------------------------------------------------------------------
 bool CChatterboxCtrl::isAtCargoBay()
 {
-  //if( mPhoto->mData[0] < 100 ) {
-//	  return true;
-//  }
   return false;
 }
 //-----------------------------------------------------------------------------
@@ -192,8 +194,8 @@ tActionResult CChatterboxCtrl::actionWork()
 {
   mPath->update( mOdo->getPose() );
   mObstacleAvoider->setGoal( mPath->getWaypoint().getPose() );
-  mPath->getWaypoint().getPose().print();
   mDrivetrain->setVelocityCmd( mObstacleAvoider->getRecommendedVelocity() );
+  mLights->setLight( ALL_LIGHTS, mIsLoaded ? GREEN : BLACK );
   return ( mPath->mFgAtEnd ? COMPLETED : IN_PROGRESS );
 }
 //-----------------------------------------------------------------------------
@@ -216,8 +218,9 @@ tActionResult CChatterboxCtrl::actionSearch()
     mDrivetrain->setVelocityCmd( mObstacleAvoider->getRecommendedVelocity() );
   }
 
-  //return ( isAtCargoBay() ? COMPLETED : IN_PROGRESS );
-  return ( isChargerDetected() ? COMPLETED : IN_PROGRESS );
+  // only exit if I can't see the force field
+  return ( ( isChargerDetected() && ~isForceFieldDetected() )
+          ? COMPLETED : IN_PROGRESS );
 }
 //-----------------------------------------------------------------------------
 tActionResult CChatterboxCtrl::actionApproachBay()
@@ -238,8 +241,10 @@ tActionResult CChatterboxCtrl::actionApproachBay()
 //-----------------------------------------------------------------------------
 tActionResult CChatterboxCtrl::actionLoad()
 {
-  static CRgbColor color( 0, 0, 0 );
-  static int loadCount = 0;
+  if( mIsStateChanged ) {
+	mColor = CRgbColor( 0, 0, 0 );
+    mLoadCount = 0;
+  }
 
   unsigned char rate = 10;
 
@@ -249,16 +254,17 @@ tActionResult CChatterboxCtrl::actionLoad()
     delete( mPath );
   }
 
-  color.mGreen = ( color.mGreen < 110 ) ? color.mGreen + rate : 255;
-  mLights->setLight( loadCount, color );
+  mColor.mGreen = ( mColor.mGreen < 110 ) ? mColor.mGreen + rate : 255;
+  mLights->setLight( mLoadCount, mColor );
   // We've filled an LED
-  if( color.mGreen >= 255 ) {
-    loadCount = (loadCount + 1) % 5;
-    color = CRgbColor(0, 0, 0);
+  if( mColor.mGreen >= 255 ) {
+    mLoadCount = (mLoadCount + 1) % 5;
+    mColor = CRgbColor(0, 0, 0);
     // We're done
-    if( loadCount == 0 ) {
+    if( mLoadCount == 0 ) {
       PRT_STATUS( "Loading Complete!\n" );
       mIsLoaded = true;
+	  mOdo->setPose( sourcePose );
       mPath = new CWaypointList( "sink2source.txt" );
       return COMPLETED;
     }
@@ -268,8 +274,10 @@ tActionResult CChatterboxCtrl::actionLoad()
 //-----------------------------------------------------------------------------
 tActionResult CChatterboxCtrl::actionDump()
 {
-  static CRgbColor color( 0, 110, 0 );
-  static int loadCount = 0;
+  if( mIsStateChanged ) {
+	mColor = CRgbColor( 0, 110, 0 );
+    mLoadCount = 0;
+  }
 
   unsigned char rate = 10;
 
@@ -278,17 +286,18 @@ tActionResult CChatterboxCtrl::actionDump()
     delete( mPath );
   }
 
-  color.mGreen = (color.mGreen > rate ) ? color.mGreen - rate : 0;
-  mLights->setLight( loadCount, color );
+  mColor.mGreen = (mColor.mGreen > rate ) ? mColor.mGreen - rate : 0;
+  mLights->setLight( mLoadCount, mColor );
   // We've filled an LED
-  if( color.mGreen <= 0 ) {
-    loadCount = (loadCount + 1) % 5;
-    color = CRgbColor(0, 110, 0);
+  if( mColor.mGreen <= 0 ) {
+    mLoadCount = (mLoadCount + 1) % 5;
+    mColor = CRgbColor(0, 110, 0);
     // We're done
-	if( loadCount == 0 ) {
+	if( mLoadCount == 0 ) {
       PRT_STATUS( "Unloading complete!\n" );
       mIsLoaded = false;
       mFlags += 1;
+	  mOdo->setPose( depotPose ); 
       mPath = new CWaypointList( "source2sink.txt" );
       return COMPLETED;
     }
@@ -299,17 +308,30 @@ tActionResult CChatterboxCtrl::actionDump()
 tActionResult CChatterboxCtrl::actionReset()
 {
   // turn 90 degrees away from charger
-  static double stopAngle = mIsLoaded ?
-                            normalizeAngle( mOdo->getPose().mYaw - HALF_PI ) :
-                            normalizeAngle( mOdo->getPose().mYaw + HALF_PI );
-  static double turnRate = mIsLoaded ? 0.2 : -0.2;
+  if( mIsStateChanged ) {
+	  mStopAngle = mIsLoaded ?
+	  normalizeAngle( mOdo->getPose().mYaw + HALF_PI ) :
+	  normalizeAngle( mOdo->getPose().mYaw - HALF_PI );
+	  mTurnRate = mIsLoaded ? 0.4 : -0.4;
+  }
   
-  mDrivetrain->setVelocityCmd( 0.0, turnRate );
-  if( epsilonEqual( mOdo->getPose().mYaw, stopAngle, 0.05 ) ) {
-    mOdo->setToZero();
+  mDrivetrain->setVelocityCmd( 0.0, mTurnRate );
+  if( epsilonEqual( mOdo->getPose().mYaw, mStopAngle, 0.10 ) ) {
     return COMPLETED;
   }
   return IN_PROGRESS;
+}
+//-----------------------------------------------------------------------------
+tActionResult CChatterboxCtrl::actionFindCharger()
+{
+  if( mIsStateChanged ) {
+    mDrivetrain->stop();
+	PRT_STATUS( "I'm hungry...it's charging time!\n" );
+    mLights->setLight( ALL_LIGHTS, BLUE );
+    mObstacleAvoider->setGoal( chargerPose );
+  }
+  mDrivetrain->setVelocityCmd( mObstacleAvoider->getRecommendedVelocity() );
+  return ( isChargerDetected() ? COMPLETED : IN_PROGRESS );
 }
 //-----------------------------------------------------------------------------
 tActionResult CChatterboxCtrl::actionDock()
@@ -329,17 +351,32 @@ tActionResult CChatterboxCtrl::actionDock()
 tActionResult CChatterboxCtrl::actionCharge()
 {
   // do some charging
-  if( mPowerPack->getVoltage() > FULLY_CHARGED_VOLTAGE_THRESHOLD )
+  if( mVoltageLpf > FULLY_CHARGED_VOLTAGE_THRESHOLD )
     return COMPLETED;
+  if( fabs( fmod( mElapsedStateTime, 2.0 ) ) < 0.3 ) {
+	  int red = int( 255 - 100 *
+			       ( mVoltageLpf - LOW_ENERGY_VOLTAGE_THRESHOLD ) );
+	  int green = int( 255 - 100 *
+				     ( FULLY_CHARGED_VOLTAGE_THRESHOLD - mVoltageLpf ) );
+	  CRgbColor color( red, green, 0 );
+	  mLights->setLight( ALL_LIGHTS, color );
+	  printf( "The voltage is %f\n", mPowerPack->getVoltage() );
+  }
+  else
+	  mLights->setLight( ALL_LIGHTS, BLACK );
   return IN_PROGRESS;
 }
 //-----------------------------------------------------------------------------
 tActionResult CChatterboxCtrl::actionUndock()
 {
-  // back away (but don't turn away)
+  if( mIsStateChanged )
+    ((CCBDrivetrain2dof *) mDrivetrain)->setDefaultOIMode( CB_MODE_FULL );
+  mLights->setLight( ALL_LIGHTS, BLUE );
   mDrivetrain->setVelocityCmd( -0.1, 0.0 );
-  if( mElapsedStateTime > 10.0 )
+  if( mElapsedStateTime > 10.0 ) {
+    mOdo->setPose( chargerPose ); 
     return COMPLETED;
+  }
   return IN_PROGRESS;
 }
 //-----------------------------------------------------------------------------
@@ -358,6 +395,8 @@ void CChatterboxCtrl::updateData ( float dt )
   pthread_mutex_lock( &mDataMutex );
   static tState prevTimestepState = mState;
 
+  mOdo->getPose().print();
+
   // household chores
   char key = gotConsoleKey();
   bool playButtonPressed = isButtonPressed( PLAY_BUTTON );
@@ -368,7 +407,7 @@ void CChatterboxCtrl::updateData ( float dt )
                 * ( mPowerPack->getVoltage() - mVoltageLpf ); 
   mDataLogger->write( mAccumulatedRunTime );
   mObstacleAvoider->update( mAccumulatedRunTime,
-                            mDrivetrain->getOdometry()->getPose(),
+                            mOdo->getPose(),
                             mDrivetrain->getVelocity() );
 //******************************** START FSM **********************************
   if( (mState != START) && ( playButtonPressed || key == 'p') )
@@ -421,6 +460,12 @@ void CChatterboxCtrl::updateData ( float dt )
         mState = WORK;
       break;
 
+    case FIND_CHARGER:
+      mTextDisplay->setText( "4" );
+      if( actionFindCharger() == COMPLETED )
+        mState = DOCK;
+      break;
+
     case DOCK:
       mTextDisplay->setText( "D" );
       if( actionDock() == COMPLETED )
@@ -445,8 +490,11 @@ void CChatterboxCtrl::updateData ( float dt )
       break;
 	
     case QUIT: // state transitions done below
-      mTextDisplay->setText( "" );
+      //mTextDisplay->setText( "" );
       PRT_STATUS( "Quitting..." );
+      pthread_mutex_unlock( &mDataMutex );
+	  mDrivetrain->stop();
+	  usleep( 10 );
       mRobot->quit();
       break;
 
