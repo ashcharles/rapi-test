@@ -42,9 +42,9 @@ const std::string StateNames[] = { "Start", "Work", "Search", "Approach_Bay",
                                    "Load", "Dump", "Reset", "Find_Charger",
 								   "Dock", "Charge", "Undock", "Pause",
 								   "Quit"};
-const CPose2d depotPose( 0.5, 5.0, 0.0 );
-const CPose2d chargerPose( 5.5, 5.0, 0.0 );
-const CPose2d sourcePose( 9.5, 5.0, 0.0 );
+const CPose2d depotPose( 0.5, 5.0, HALF_PI );
+const CPose2d chargerPose( 5.5, 5.0, HALF_PI );
+const CPose2d sourcePose( 10.0, 5.0, HALF_PI );
 //-----------------------------------------------------------------------------
 CChatterboxCtrl::CChatterboxCtrl ( ARobot* robot )
     : ARobotCtrl ( robot )
@@ -94,10 +94,11 @@ CChatterboxCtrl::CChatterboxCtrl ( ARobot* robot )
 
   // Setup navigation
   mPath = new CWaypointList( "source2sink.txt" );
+  //mObstacleAvoider = new CNd( 0.15, 0.15, 0.15, mName, 50 *mRangeFinder->getNumSamples() );
+  //mObstacleAvoider->addRangeFinder( mRangeFinder );
   mObstacleAvoider = new CNdPlus( mBumper, mRangeFinder, mName,
                                   50 * mRangeFinder->getNumSamples() );
   mOdo = mDrivetrain->getOdometry();
-  mOdo->setToZero(); // I have no clue where I am to start
 
   // Setup logging & rpc server
   char filename[40];
@@ -215,7 +216,10 @@ tActionResult CChatterboxCtrl::actionSearch()
     mObstacleAvoider->setGoal( goal + mOdo->getPose() );
   }
   else if( modTime > turnTime ) {
-    mDrivetrain->setVelocityCmd( mObstacleAvoider->getRecommendedVelocity() );
+    CVelocity2d velo = mObstacleAvoider->getRecommendedVelocity();
+	if( velo.mXDot < 0 )
+		velo.mXDot = 0.0;
+    mDrivetrain->setVelocityCmd( velo );
   }
 
   // only exit if I can't see the force field
@@ -406,6 +410,7 @@ void CChatterboxCtrl::updateData ( float dt )
   mVoltageLpf = mVoltageLpf + ( mRobot->getUpdateInterval() / TAU_VOLTAGE_LPF )
                 * ( mPowerPack->getVoltage() - mVoltageLpf ); 
   mDataLogger->write( mAccumulatedRunTime );
+  // TODO: check that velocity is in correct coordinates
   mObstacleAvoider->update( mAccumulatedRunTime,
                             mOdo->getPose(),
                             mDrivetrain->getVelocity() );
