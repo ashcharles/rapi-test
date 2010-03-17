@@ -24,7 +24,7 @@
 extern float arg;
 
 /** Button latch time [s] */
-const float BUTTON_LATCH_TIME = 1.0;
+const float BUTTON_LATCH_TIME = 1.1;
 /** Time constant for voltage low pass filter [s] */
 const float TAU_VOLTAGE_LPF = 5.0;
 /** Battery voltage threshold to trigger charging [V] */
