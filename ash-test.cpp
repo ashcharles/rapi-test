@@ -59,6 +59,11 @@ int main( int argc, char* argv[] )
      PRT_ERR1("Error resetting signal handler %s", strerror(errno));
   }
 
+  printf("-----------------------------------\n");
+  printf("Chatterbox FASR \n");
+  printf("  build %s %s \n", __DATE__, __TIME__);
+  printf("  compiled against RAPI version %s (%s) build %s\n", RAPI_VERSION(),
+           RAPI_GIT_VERSION(), RAPI_BUILD() );
   // create robot and its controller
   robot = new Rapi::CCBRobot ();
   if ( robot->init() == 0) {
