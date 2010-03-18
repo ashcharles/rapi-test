@@ -25,7 +25,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-Rapi::CCBRobot* robot1 = NULL;
+Rapi::CCBRobot* robot = NULL;
 CChatterboxCtrl* robotCtrl = NULL;
 
 float arg = 0.1;
@@ -41,7 +41,7 @@ void quitSig(int signum)
   }
 
   // terminate main thread
-  robot1->quit();
+  robot->quit();
 }
 //------------------------------------------------------------------------------
 int main( int argc, char* argv[] )
@@ -60,16 +60,16 @@ int main( int argc, char* argv[] )
   }
 
   // create robot and its controller
-  robot1 = new Rapi::CCBRobot ();
-  if ( robot1->init() == 0) {
+  robot = new Rapi::CCBRobot ();
+  if ( robot->init() == 0) {
     Rapi::rapiError->print();
-    delete robot1;
+    delete robot;
     exit(-1);
   }
-  robotCtrl = new CChatterboxCtrl ( robot1 );
+  robotCtrl = new CChatterboxCtrl ( robot );
 
   // blocking call
-  robot1->run();
+  robot->run();
 
   // clean up robot controller
   if (robotCtrl) {
@@ -78,7 +78,7 @@ int main( int argc, char* argv[] )
   }
 
   // clean up robot
-  if (robot1)
-    delete (robot1);
+  if (robot)
+    delete (robot);
   return 1;
 }

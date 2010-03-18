@@ -22,6 +22,7 @@
 #define CHATTERBOXCTRL_H
 
 #include <RapiChatterbox>
+#include <RapiAutolabTracker>
 #include <poll.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -37,9 +38,9 @@ using namespace Rapi;
 typedef enum { START, WORK, SEARCH, APPROACH_BAY, LOAD, DUMP, RESET,
                FIND_CHARGER, DOCK, CHARGE, UNDOCK, PAUSE, QUIT,
 			   NUM_STATES } tState;
-/** Type definition for iRobot Create buttons */ 
+/** Type definition for iRobot Create buttons */
 typedef enum { PLAY_BUTTON, FAST_FORWARD_BUTTON, NUM_BUTTONS } tButton;
-/** Type definition for action results */ 
+/** Type definition for action results */
 typedef enum { COMPLETED, IN_PROGRESS } tActionResult;
 
 /**
@@ -59,70 +60,70 @@ class CChatterboxCtrl : public ARobotCtrl
 
   protected: // derived classes have access too
     // functions
-	/** <EM>Run</EM> action */
-	tActionResult actionWork();
+  	/** <EM>Run</EM> action */
+	  tActionResult actionWork();
     /** <EM>Search</EM> action */
     tActionResult actionSearch();
     /** <EM>Approach Cargo Bay</EM> action */
     tActionResult actionApproachBay();
-	/** <EM>Loading</EM> action */
-	tActionResult actionLoad();
-	/** <EM>Dumping</EM> action */
-	tActionResult actionDump();
-	/** <EM>Find Charger</EM> action */
-	tActionResult actionFindCharger();
-	/** <EM>Docking</EM> action */
-	tActionResult actionDock();
-	/** <EM>Charging</EM> action */
-	tActionResult actionCharge();
-	/** <EM>Undocking</EM> action */
-	tActionResult actionUndock();
-	/** <EM>Reset</EM> action */
-	tActionResult actionReset();
-	/** <EM>Pause</EM> action */
-	tActionResult actionPause();
-	/**
-	 * Check if we have reached a waypoint 
-	 * @return true if we are close to waypoint 
-	 */
-	bool isAtGoal();
-	/**
-	 * Check if we can see a charger's force field
-	 * @return true if we see a force field
-	 */
-	bool isForceFieldDetected();
-	/**
-	 * Check if we can see a charger
-	 * @return true if we see a charger
-	 */
-	bool isChargerDetected();
-	/**
-	 * Checks if charging is required
-	 * @return true if required, false otherwise
-	 */
-	bool isChargingRequired();
-	/**
-	 * Checks if we are at a source or sink
-	 * @return true if we are there
-	 */
-	bool isAtCargoBay();
-	/**
-	 * Checks if either the 'play' or 'fast forward' buttons have been pressed
-	 * @param tButton
-	 * @return true if button pressed
-	 */
-	bool isButtonPressed(tButton buttonId);
-	/**
-	 * Check for input from the console
-	 * @return key input from console or '\0'
-	 */
-	char gotConsoleKey();
-	/**
+	  /** <EM>Loading</EM> action */
+	  tActionResult actionLoad();
+	  /** <EM>Dumping</EM> action */
+	  tActionResult actionDump();
+	  /** <EM>Find Charger</EM> action */
+	  tActionResult actionFindCharger();
+	  /** <EM>Docking</EM> action */
+	  tActionResult actionDock();
+	  /** <EM>Charging</EM> action */
+	  tActionResult actionCharge();
+	  /** <EM>Undocking</EM> action */
+	  tActionResult actionUndock();
+	  /** <EM>Reset</EM> action */
+	  tActionResult actionReset();
+  	/** <EM>Pause</EM> action */
+	  tActionResult actionPause();
+	  /**
+	   * Check if we have reached a waypoint
+  	 * @return true if we are close to waypoint
+	   */
+	  bool isAtGoal();
+	  /**
+	   * Check if we can see a charger's force field
+	   * @return true if we see a force field
+	   */
+	  bool isForceFieldDetected();
+	  /**
+	   * Check if we can see a charger
+	   * @return true if we see a charger
+	   */
+	  bool isChargerDetected();
+	  /**
+	   * Checks if charging is required
+	   * @return true if required, false otherwise
+	   */
+	  bool isChargingRequired();
+	  /**
+	   * Checks if we are at a source or sink
+	   * @return true if we are there
+  	 */
+  	bool isAtCargoBay();
+	  /**
+	   * Checks if either the 'play' or 'fast forward' buttons have been pressed
+	   * @param tButton
+  	 * @return true if button pressed
+  	 */
+  	bool isButtonPressed(tButton buttonId);
+	  /**
+	   * Check for input from the console
+	   * @return key input from console or '\0'
+	   */
+	  char gotConsoleKey();
+  	/**
      * Update controller for the current time step
      * @param dt time since last upate [s]
      */
     void updateData(float dt);
-	// Devices
+	  // Devices
     /** Drivetrain */
     ADrivetrain2dof * mDrivetrain;
     /** range finder...either a laser or IR sensors*/
@@ -149,54 +150,56 @@ class CChatterboxCtrl : public ARobotCtrl
     AFiducialFinder * mFrontFiducial;
     /** Photo sensor */
     AAnalogSensorArray * mPhoto;
-	/** Cliff Sensor */
-	ABinarySensorArray * mCliffSensor;
-	/** Odometry from drivetrain */
-	COdometry * mOdo;
-	/** Data Logger */
-	CDataLogger * mDataLogger;
+	  /** Cliff Sensor */
+  	ABinarySensorArray * mCliffSensor;
+  	/** Odometry from drivetrain */
+	  COdometry * mOdo;
+  	/** Data Logger */
+	  CDataLogger * mDataLogger;
     /** RPC Server */
     RobotRpcServer * mServer;
 
   private:
-	/** Robot name */
-	std::string mName;
+ 	  /** Robot name */
+ 	  std::string mName;
     /** State machine */
     tState mState;
-	/** Previous state of FSM */
-	tState mPrevState;
-	/** Name of State (data logging) */
-	std::string mStateName;
-	/** Elapsed state time */
-	float mElapsedStateTime;
-	/** Flags if the FSM state has changed in the last time step */
-	bool mIsStateChanged;
+	  /** Previous state of FSM */
+	  tState mPrevState;
+	  /** Name of State (data logging) */
+ 	  std::string mStateName;
+	  /** Elapsed state time */
+  	float mElapsedStateTime;
+  	/** Flags if the FSM state has changed in the last time step */
+	  bool mIsStateChanged;
     /** Time since last button push */
     float mButtonLatchTime;
-	/** Flags if the Play button is pressed */
-	bool mIsPlayButtonPressed;
-	/** Accumulated run time */
-	float mAccumulatedRunTime;
-	/** Nearness Diagram (ND) obstacle avoider */
-	CNdPlus * mObstacleAvoider;
-	/** Current path */
-	CWaypointList * mPath;
-	/** True if robot is loaded, otherwise false */
-	bool mIsLoaded;
-	/** low-pass filtered voltage level */
-	float mVoltageLpf;
+  	/** Flags if the Play button is pressed */
+  	bool mIsPlayButtonPressed;
+  	/** Accumulated run time */
+  	float mAccumulatedRunTime;
+  	/** Nearness Diagram (ND) obstacle avoider */
+  	CNdPlus * mObstacleAvoider;
+	  /** Current path */
+	  CWaypointList * mPath;
+  	/** True if robot is loaded, otherwise false */
+	  bool mIsLoaded;
+	  /** low-pass filtered voltage level */
+	  float mVoltageLpf;
     /** number of flags transported */
     int mFlags;
     /** Data mutex for RPC server */
     pthread_mutex_t mDataMutex;
-	/** current color for loading fades */
-	CRgbColor mColor;
-	/** number of LEDs 'loaded' */
-	int mLoadCount;
-	/** Reset state current stopping angle for turning */
-	double mStopAngle;
-	/** reset state current turn rate */
-	double mTurnRate;
+	  /** current color for loading fades */
+	  CRgbColor mColor;
+	  /** number of LEDs 'loaded' */
+	  int mLoadCount;
+	  /** Reset state current stopping angle for turning */
+  	double mStopAngle;
+	  /** reset state current turn rate */
+	  double mTurnRate;
+	  /** Overhead camera tracker */
+  	CAutolabTracker* mTracker;
 };
 
 #endif

@@ -8,3 +8,5 @@ local/
 *.kdevses
 *~
 docs/
+Project.cbp
+Project.layout

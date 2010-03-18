@@ -24,7 +24,7 @@
 extern float arg;
 
 /** Button latch time [s] */
-const float BUTTON_LATCH_TIME = 1.1;
+const float BUTTON_LATCH_TIME = 1.0;
 /** Time constant for voltage low pass filter [s] */
 const float TAU_VOLTAGE_LPF = 5.0;
 /** Battery voltage threshold to trigger charging [V] */
@@ -52,10 +52,6 @@ CChatterboxCtrl::CChatterboxCtrl ( ARobot* robot )
   PRT_STATUS ( "I'm going to transport some flags" );
 
   // Initialize robot
-  char hostname[20];
-  gethostname( hostname, 20 );
-  std::string name( hostname );
-  mName = name.substr(0, name.find( "." ) ); // parse up to domain
   mState = START;
   mStateName = StateNames[mState];
   mIsLoaded = true; // hack to make the search state work on start
@@ -79,6 +75,12 @@ CChatterboxCtrl::CChatterboxCtrl ( ARobot* robot )
   mRobot->findDevice ( mCliffSensor, "CB:cliff" );
   mRobot->findDevice ( mRangeFinder, "CB:ir" );
   //mRobot->findDevice ( mLaser, "CB:laser" );
+
+  mTracker = new CAutolabTracker::getInstance("Tracker", mRobot->getName(),
+                                              "192.168.1.116", 6379);
+  mRobot->addDevice(mTracker);
+
+
   if( mLaser ) {
     PRT_STATUS( "Using a laser device" );
     mRangeFinder = mLaser;
@@ -102,7 +104,7 @@ CChatterboxCtrl::CChatterboxCtrl ( ARobot* robot )
 
   // Setup logging & rpc server
   char filename[40];
-  sprintf(filename, "logfile_%s.log", mName.c_str() );
+  sprintf(filename, "logfile_%s.log", mRobot->getName().c_str() );
   mDataLogger = CDataLogger::getInstance( filename , OVERWRITE, "#" );
   mDataLogger->addVar( &mPhoto->mData[0], "Photo Sensor" );
   mDataLogger->addVar( &mVoltageLpf, "Filtered Voltage" );
@@ -171,7 +173,7 @@ bool CChatterboxCtrl::isChargerDetected()
 bool CChatterboxCtrl::isButtonPressed( tButton buttonId )
 {
   if( buttonId >= NUM_BUTTONS )
-	 return false; 
+	 return false;
   if( mButton->mBitData[buttonId] && (mButtonLatchTime > BUTTON_LATCH_TIME) ) {
     mButtonLatchTime = 0.0;
     return true;
@@ -294,16 +296,17 @@ tActionResult CChatterboxCtrl::actionDump()
   mLights->setLight( mLoadCount, mColor );
   // We've filled an LED
   if( mColor.mGreen <= 0 ) {
-    mLoadCount = (mLoadCount + 1) % 5;
-    mColor = CRgbColor(0, 110, 0);
-    // We're done
-	if( mLoadCount == 0 ) {
+      mLoadCount = (mLoadCount + 1) % 5;
+      mColor = CRgbColor(0, 110, 0);
+      // We're done
+  	if( mLoadCount == 0 ) {
       PRT_STATUS( "Unloading complete!\n" );
       mIsLoaded = false;
       mFlags += 1;
-	  mOdo->setPose( depotPose ); 
+	    mOdo->setPose( depotPose );
       mPath = new CWaypointList( "source2sink.txt" );
       return COMPLETED;
+
     }
   }
   return IN_PROGRESS;
@@ -318,7 +321,7 @@ tActionResult CChatterboxCtrl::actionReset()
 	  normalizeAngle( mOdo->getPose().mYaw - HALF_PI );
 	  mTurnRate = mIsLoaded ? 0.4 : -0.4;
   }
-  
+
   mDrivetrain->setVelocityCmd( 0.0, mTurnRate );
   if( epsilonEqual( mOdo->getPose().mYaw, mStopAngle, 0.10 ) ) {
     return COMPLETED;
@@ -378,7 +381,7 @@ tActionResult CChatterboxCtrl::actionUndock()
   mLights->setLight( ALL_LIGHTS, BLUE );
   mDrivetrain->setVelocityCmd( -0.1, 0.0 );
   if( mElapsedStateTime > 10.0 ) {
-    mOdo->setPose( chargerPose ); 
+    mOdo->setPose( chargerPose );
     return COMPLETED;
   }
   return IN_PROGRESS;
@@ -408,7 +411,7 @@ void CChatterboxCtrl::updateData ( float dt )
   mElapsedStateTime += dt;
   mAccumulatedRunTime += dt;
   mVoltageLpf = mVoltageLpf + ( mRobot->getUpdateInterval() / TAU_VOLTAGE_LPF )
-                * ( mPowerPack->getVoltage() - mVoltageLpf ); 
+                * ( mPowerPack->getVoltage() - mVoltageLpf );
   mDataLogger->write( mAccumulatedRunTime );
   // TODO: check that velocity is in correct coordinates
   mObstacleAvoider->update( mAccumulatedRunTime,
@@ -488,18 +491,18 @@ void CChatterboxCtrl::updateData ( float dt )
       if( actionUndock() == COMPLETED )
         mState = RESET;
       break;
-  
+
     case PAUSE: // state transitions done below
       mTextDisplay->setText( "0" );
       actionPause();
       break;
-	
+
     case QUIT: // state transitions done below
       //mTextDisplay->setText( "" );
       PRT_STATUS( "Quitting..." );
       pthread_mutex_unlock( &mDataMutex );
-	  mDrivetrain->stop();
-	  usleep( 10 );
+	    mDrivetrain->stop();
+	    usleep( 10 );
       mRobot->quit();
       break;
 
