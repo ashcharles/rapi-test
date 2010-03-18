@@ -26,14 +26,14 @@ LINK_DIRECTORIES(
 	#${AUTOLABND_LIBRARY_DIRS}
 )
 
-ADD_EXECUTABLE($TARGET
+ADD_EXECUTABLE(TARGET
   ash-test.cpp
   chatterboxctrl.cpp
   waypoint.cpp
 )
 
 
-TARGET_LINK_LIBRARIES($TARGET
+TARGET_LINK_LIBRARIES(TARGET
   autolab-rapi
   autolab-rapi-chatterbox
   autolab-rapi-autolabtracker
