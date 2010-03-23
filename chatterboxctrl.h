@@ -27,15 +27,17 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string>
-#include <list>
+#include <vector>
+#include "task.h"
+
 #include "waypoint.h"
 
 using namespace Rapi;
 
 /** Type definition for state of FSM */
-typedef enum { START, WORK, SEARCH, APPROACH_BAY, LOAD, DUMP, RESET,
-               FIND_CHARGER, DOCK, CHARGE, UNDOCK, PAUSE, QUIT,
-			   NUM_STATES } tState;
+typedef enum { START, GOTO_SOURCE, GOTO_SINK, GOTO_CHARGER, WAIT_AT_SOURCE,
+               LOADING, UNLOADING, DOCKING, UNDOCKING, CHARGING,
+               FLYING, NUM_STATES } tState;
 /** Type definition for iRobot Create buttons */
 typedef enum { PLAY_BUTTON, FAST_FORWARD_BUTTON, NUM_BUTTONS } tButton;
 /** Type definition for action results */
@@ -62,11 +64,17 @@ class CChatterboxCtrl : public ARobotCtrl
      * @param dt time since last upate [s]
      */
     void updateData(float dt);
+    /**
+     * Obstacle avoidance from fasr2
+     */
+    bool obstacleAvoid();
+    /** Switch to the next task in the list */
+    void switchTask();
 	  // Devices
     /** Drivetrain */
     CCBDrivetrain2dof* mDrivetrain;
-    /** range finder...either a laser or IR sensors*/
-    ARangeFinder* mRangeFinder;
+    /** Infrared sensors */
+    ARangeFinder* mIr;
     /** Power pack */
     APowerPack* mPowerPack;
     /** Text display */
@@ -95,11 +103,24 @@ class CChatterboxCtrl : public ARobotCtrl
 	  COdometry* mOdometry;
   	/** Data Logger */
 	  CDataLogger* mDataLogger;
+	  /** Redis client */
+	  CRedisClient* mRedisClient;
 	  /**
 	   * Drive to a given pose
 	   * @param goal to drive to
+	   * @param proximity how close to the goal do we need to be [m]
+	   * @return distance to goal [m]
+	   * @param fgVeriy enforces that the goal is verified with the tracker before
+	   *        reporting that the goal has been reached
 	   */
-    void driveTo(CPose2d goal);
+    tActionResult driveTo(const CPose2d goal, float proximity, float &distance, bool fgVerify=true);
+    tActionResult actionLoading();
+    tActionResult actionUnloading();
+    tActionResult actionGotoCharger();
+    tActionResult actionDocking();
+    tActionResult actionUndocking();
+    tActionResult actionCharging();
+    tActionResult actionFollowWaypointVector(tWaypointVector* wpVector);
     /**
      * Estimates the current robot position using the odometry and the tracker
      */
@@ -109,6 +130,12 @@ class CChatterboxCtrl : public ARobotCtrl
   private:
     /** State of FSM */
     tState mState;
+    /** FSM state from previous time step */
+    tState mPrevState;
+    /** Elapsed time since entering current state [s] */
+    float mElapsedTime;
+    /** Flages if the state has changed */
+    bool mFgStateChanged;
     /** Name of states */
     std::string mStateName;
 	  /** Overhead camera tracker */
@@ -119,6 +146,33 @@ class CChatterboxCtrl : public ARobotCtrl
   	CPose2d mEstRobotPose;
   	/** Time since start of robot */
   	double mTime;
+  	/** Vector of Tasks */
+  	std::vector<CTask*> mTaskVector;
+  	/** Pointer to the current task */
+  	CTask* mCurrentTaskPtr;
+  	/** Minimum distance to obstacles on the left [m] */
+  	float mMinObstacleLeft;
+  	/** Minimum distance to obstacles on the right [m] */
+  	float mMinObstacleRight;
+  	/** Time steps to avoid obstacles */
+  	int mAvoidCount;
+  	/** Time since the last tracker heading update [s] */
+  	float mTrackerHeadingTime;
+  	/** Time since the last tracker position update [s] */
+  	float mTrackerPositionTime;
+  	/** Number of pucks loaded */
+  	unsigned int mPuckLoad;
+  	/** Flags if position estimate is valid, that is close to the tracker */
+  	bool mFgPoseEstValid;
+    /** Time spend loading [s] */
+    float mLoadingTime;
+    /** Time spend unloading [s] */
+    float mUnloadingTime;
+    /** Time spend traveling [s] */
+    float mTravelTime;
+    /** Current waypoint id */
+    unsigned int mWaypointId;
+
 };
 
 #endif
